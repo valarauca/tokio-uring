@@ -17,11 +17,13 @@ mod open_options;
 pub use open_options::OpenOptions;
 
 mod statx;
-pub use statx::is_dir_regfile;
-pub use statx::statx;
-pub use statx::StatxBuilder;
 
 mod symlink;
 pub use symlink::symlink;
 
 mod metadata;
+pub use metadata::metadata;
+pub use metadata::symlink_metadata;
+pub use metadata::FileKind;
+pub use metadata::FileType;
+pub use metadata::Metadata;

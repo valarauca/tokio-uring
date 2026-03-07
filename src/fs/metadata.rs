@@ -1,53 +1,69 @@
+use std::io;
+use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-const S_IFMT: u16 = 0o170000;
-const S_IFREG: u16 = 0o100000;
-const S_IFDIR: u16 = 0o040000;
-const S_IFLNK: u16 = 0o120000;
-const S_IFSOCK: u16 = 0o140000;
-const S_IFIFO: u16 = 0o010000;
-const S_IFBLK: u16 = 0o060000;
-const S_IFCHR: u16 = 0o020000;
+use libc::{
+    S_IFMT,
+    S_IFREG,
+    S_IFDIR,
+    S_IFLNK,
+    S_IFSOCK,
+    S_IFIFO,
+    S_IFBLK,
+    S_IFCHR,
+};
 
+use super::File;
+
+/// A structure representing a file type.
 #[derive(Copy, Clone)]
 pub struct FileType {
     stx_mode: u16,
 }
 
+/// Methods for querying the type of a file.
 pub trait FileKind {
+    /// Returns `true` if this is a regular file.
     fn is_file(&self) -> bool;
+    /// Returns `true` if this is a directory.
     fn is_dir(&self) -> bool;
+    /// Returns `true` if this is a symbolic link.
     fn is_symlink(&self) -> bool;
+    /// Returns `true` if this is a socket.
     fn is_socket(&self) -> bool;
+    /// Returns `true` if this is a FIFO.
     fn is_fifo(&self) -> bool;
+    /// Returns `true` if this is a block device.
     fn is_block_dev(&self) -> bool;
+    /// Returns `true` if this is a character device.
     fn is_char_dev(&self) -> bool;
 }
 
 impl FileKind for FileType {
     fn is_file(&self) -> bool {
-        self.stx_mode & S_IFMT == S_IFREG
+        self.stx_mode as u32 & S_IFMT == S_IFREG
     }
     fn is_dir(&self) -> bool {
-        self.stx_mode & S_IFMT == S_IFDIR
+        self.stx_mode as u32 & S_IFMT == S_IFDIR
     }
     fn is_symlink(&self) -> bool {
-        self.stx_mode & S_IFMT == S_IFLNK
+        self.stx_mode as u32 & S_IFMT == S_IFLNK
     }
     fn is_socket(&self) -> bool {
-        self.stx_mode & S_IFMT == S_IFSOCK
+        self.stx_mode as u32 & S_IFMT == S_IFSOCK
     }
     fn is_fifo(&self) -> bool {
-        self.stx_mode & S_IFMT == S_IFIFO
+        self.stx_mode as u32 & S_IFMT == S_IFIFO
     }
     fn is_block_dev(&self) -> bool {
-        self.stx_mode & S_IFMT == S_IFBLK
+        self.stx_mode as u32 & S_IFMT == S_IFBLK
     }
     fn is_char_dev(&self) -> bool {
-        self.stx_mode & S_IFMT == S_IFCHR
+        self.stx_mode as u32 & S_IFMT == S_IFCHR
     }
 }
 
+/// Metadata returned by [`metadata`], [`symlink_metadata`], or [`File::metadata`].
 pub struct Metadata {
     inner: libc::statx,
 }
@@ -57,28 +73,34 @@ impl Metadata {
         Self { inner }
     }
 
+    /// Returns the file type for this metadata.
     pub fn file_type(&self) -> FileType {
         FileType {
             stx_mode: self.inner.stx_mode,
         }
     }
 
+    /// Returns `true` if this metadata is for a directory.
     pub fn is_dir(&self) -> bool {
         FileKind::is_dir(self)
     }
 
+    /// Returns `true` if this metadata is for a regular file.
     pub fn is_file(&self) -> bool {
         FileKind::is_file(self)
     }
 
+    /// Returns `true` if this metadata is for a symbolic link.
     pub fn is_symlink(&self) -> bool {
         FileKind::is_symlink(self)
     }
 
+    /// Returns the size of the file in bytes.
     pub fn len(&self) -> u64 {
         self.inner.stx_size
     }
 
+    /// Returns the last modification time of the file.
     pub fn modified(&self) -> std::io::Result<SystemTime> {
         if self.inner.stx_mask & libc::STATX_MTIME == 0 {
             return Err(std::io::Error::from(std::io::ErrorKind::Unsupported));
@@ -86,6 +108,7 @@ impl Metadata {
         Ok(statx_ts_to_system_time(&self.inner.stx_mtime))
     }
 
+    /// Returns the last access time of the file.
     pub fn accessed(&self) -> std::io::Result<SystemTime> {
         if self.inner.stx_mask & libc::STATX_ATIME == 0 {
             return Err(std::io::Error::from(std::io::ErrorKind::Unsupported));
@@ -93,6 +116,7 @@ impl Metadata {
         Ok(statx_ts_to_system_time(&self.inner.stx_atime))
     }
 
+    /// Returns the creation time of the file.
     pub fn created(&self) -> std::io::Result<SystemTime> {
         if self.inner.stx_mask & libc::STATX_BTIME == 0 {
             return Err(std::io::Error::from(std::io::ErrorKind::Unsupported));
@@ -103,25 +127,25 @@ impl Metadata {
 
 impl FileKind for Metadata {
     fn is_file(&self) -> bool {
-        self.inner.stx_mode & S_IFMT == S_IFREG
+        self.inner.stx_mode as u32 & S_IFMT == S_IFREG
     }
     fn is_dir(&self) -> bool {
-        self.inner.stx_mode & S_IFMT == S_IFDIR
+        self.inner.stx_mode as u32 & S_IFMT == S_IFDIR
     }
     fn is_symlink(&self) -> bool {
-        self.inner.stx_mode & S_IFMT == S_IFLNK
+        self.inner.stx_mode as u32 & S_IFMT == S_IFLNK
     }
     fn is_socket(&self) -> bool {
-        self.inner.stx_mode & S_IFMT == S_IFSOCK
+        self.inner.stx_mode as u32 & S_IFMT == S_IFSOCK
     }
     fn is_fifo(&self) -> bool {
-        self.inner.stx_mode & S_IFMT == S_IFIFO
+        self.inner.stx_mode as u32 & S_IFMT == S_IFIFO
     }
     fn is_block_dev(&self) -> bool {
-        self.inner.stx_mode & S_IFMT == S_IFBLK
+        self.inner.stx_mode as u32 & S_IFMT == S_IFBLK
     }
     fn is_char_dev(&self) -> bool {
-        self.inner.stx_mode & S_IFMT == S_IFCHR
+        self.inner.stx_mode as u32 & S_IFMT == S_IFCHR
     }
 }
 
@@ -215,5 +239,34 @@ impl std::os::linux::fs::MetadataExt for Metadata {
 
     fn st_blocks(&self) -> u64 {
         self.inner.stx_blocks
+    }
+}
+
+/// Returns metadata for the given path without following symlinks.
+pub async fn symlink_metadata<P: AsRef<Path>>(path: P) -> io::Result<Metadata> {
+    let mut builder = super::statx::StatxBuilder::new();
+    builder
+        .flags(libc::AT_SYMLINK_NOFOLLOW)
+        .pathname(path)?
+        .statx()
+        .await
+        .map(Metadata::from_statx)
+}
+
+/// Returns metadata for the given path, following symlinks.
+pub async fn metadata<P: AsRef<Path>>(path: P) -> io::Result<Metadata> {
+    let mut builder = super::statx::StatxBuilder::new();
+    builder
+        .flags(libc::AT_STATX_SYNC_AS_STAT)
+        .pathname(path)?
+        .statx()
+        .await
+        .map(Metadata::from_statx)
+}
+
+impl File {
+    /// Returns metadata for this open file.
+    pub async fn metadata(&self) -> io::Result<Metadata> {
+        self.statx().await.map(Metadata::from_statx)
     }
 }

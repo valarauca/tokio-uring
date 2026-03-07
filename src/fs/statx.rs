@@ -102,6 +102,7 @@ impl File {
 ///     let statx = tokio_uring::fs::statx("foo.txt").await.unwrap();
 /// })
 /// ```
+#[allow(dead_code)]
 pub async fn statx<P: AsRef<Path>>(path: P) -> io::Result<libc::statx> {
     StatxBuilder::new().pathname(path).unwrap().statx().await
 }
@@ -302,7 +303,7 @@ impl StatxBuilder {
 /// They both can't be true at the same time and there are many reasons they may both be false.
 #[allow(dead_code)]
 pub async fn is_dir_regfile<P: AsRef<Path>>(path: P) -> (bool, bool) {
-    let mut builder = crate::fs::StatxBuilder::new();
+    let mut builder = StatxBuilder::new();
     if builder.mask(libc::STATX_TYPE).pathname(path).is_err() {
         return (false, false);
     }
