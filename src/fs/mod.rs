@@ -23,3 +23,5 @@ pub use statx::StatxBuilder;
 
 mod symlink;
 pub use symlink::symlink;
+
+mod metadata;
